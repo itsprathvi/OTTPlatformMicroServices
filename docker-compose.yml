@@ -1,0 +1,94 @@
+services:
+  contentservice:
+    image: ${DOCKER_REGISTRY-}contentservice
+    build:
+      context: .
+      dockerfile: ContentService/Dockerfile
+
+
+    environment:
+      DbServer: "ott"
+      DbPort: "1433"
+      DbUser: "SA"
+      Password: "Ott@123"
+      Database: "OTTPlatformContentsDB"
+    depends_on:
+      - ott
+
+  ott:
+    container_name: ott
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    restart: always
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Ott@123"
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  consumer:
+    image: ${DOCKER_REGISTRY-}consumer
+    build:
+      context: .
+      dockerfile: Consumer/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - "EventBusSettings:HostAddress=amqp://guest:guest@rabbitmq:5672"
+
+
+  publisher:
+    image: ${DOCKER_REGISTRY-}publisher
+    build:
+      context: .
+      dockerfile: Publisher/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - "EventBusSettings:HostAddress=amqp://guest:guest@rabbitmq:5672"
+
+  mailhog:
+   image: mailhog/mailhog
+   container_name: mailhog
+   ports:
+     - "1025:1025"   # SMTP port
+     - "8025:8025"   # Web UI
+
+
+  apigateway:
+    image: ${DOCKER_REGISTRY-}apigateway
+    build:
+      context: .
+      dockerfile: ApiGateway/Dockerfile
+    ports:
+      - "9000:8080"
+    depends_on:
+      - authapi
+      - ordersapi
+
+
+
+  authapi:
+    image: ${DOCKER_REGISTRY-}authapi
+    build:
+      context: .
+      dockerfile: AuthApi/Dockerfile
+    ports:
+      - "5003:8080"
+
+
+  ordersapi:
+    image: ${DOCKER_REGISTRY-}ordersapi
+    build:
+      context: .
+      dockerfile: OrdersApi/Dockerfile
+    ports:
+      - "6003:8080"
+
+
